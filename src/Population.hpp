@@ -21,8 +21,12 @@ public:
    Population(const GeneticAlgorithm<T>& ga);
    // create a population of chromosomes
    void creation();
+   // create a batch population of chromsomes
+   void batchCreation();
    // evolve population, get next generation
    void evolution();
+   void batchEvolution();
+
 
    // access element in current population at position pos
    const CHR<T>& operator()(int pos) const;
@@ -74,6 +78,8 @@ private:
    void completion();
    // update population (adapting, sorting)
    void updating();
+   void batchRecombination();
+   void batchCompletion();
 };
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -116,9 +122,42 @@ void Population<T>::creation()
       curpop[i]->create();
       curpop[i]->evaluate();
    }
+
    // updating population
    this->updating();
 }
+
+
+// create a population of chromosomes
+template <typename T>
+void Population<T>::batchCreation()
+{
+   std::vector<std::vector<T>> popparams;
+   int start = 0;
+   // initializing first chromosome
+   if (!ptr->initialSet.empty()) {
+      curpop[0] = std::make_shared<Chromosome<T>>(*ptr);
+      curpop[0]->initialize();
+   }
+   // getting the rest
+   #ifdef _OPENMP 
+   #pragma omp parallel for num_threads(MAX_THREADS)
+   #endif
+   for (int i = start; i < ptr->popsize; ++i) {
+      curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
+      curpop[i]->create();
+      popparams.push_back(curpop[i]->getUpdatedParam());
+   }
+
+   std::vector<std::vector<T>> fitnesses = ptr->Objective(popparams);
+   for(int i = 0; i < ptr->popsize; i++){
+      curpop[i]->setFitness(fitnesses[i]);
+   }
+
+   // updating population
+   this->updating();
+}
+
 
 /*-------------------------------------------------------------------------------------------------*/
 
@@ -141,6 +180,30 @@ void Population<T>::evolution()
    // updating population
    this->updating(); 
 }
+
+// population evolution (selection, recombination, completion, mutation), get next generation
+template <typename T>
+void Population<T>::batchEvolution()
+{   
+   // initializing mating population index
+   matidx = 0;
+   // selecting mating population
+   ptr->Selection(*this);
+   // applying elitism if required
+   this->elitism(); 
+
+   // crossing-over mating population
+   this->batchRecombination();
+
+   // completing new population
+   this->batchCompletion();
+
+   // moving new population into current population for next generation
+   curpop = std::move(newpop);
+   // updating population
+   this->updating(); 
+}
+
 
 /*-------------------------------------------------------------------------------------------------*/
 
@@ -200,6 +263,70 @@ void Population<T>::completion()
       newpop[i]->evaluate();
    }
 }
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+// create new batch population from recombination of the old one
+template <typename T>
+void Population<T>::batchRecombination()
+{
+
+   // creating a new population by cross-over
+   #ifdef _OPENMP 
+   #pragma omp parallel for num_threads(MAX_THREADS)
+   #endif
+   for (int i = ptr->elitpop; i < nbrcrov; i = i + 2) {      
+      // initializing 2 new chromosome
+      newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
+      newpop[i+1] = std::make_shared<Chromosome<T>>(*ptr);
+      // crossing-over mating population to create 2 new chromosomes
+      ptr->CrossOver(*this, newpop[i], newpop[i+1]);
+      // mutating new chromosomes
+      ptr->Mutation(newpop[i]);   
+      ptr->Mutation(newpop[i+1]);
+   } 
+
+   std::vector<std::vector<T>> popparams;
+   for(int i = 0; i < ptr->popsize; i++){
+      popparams.push_back(newpop[i]->getUpdatedParam());
+   }
+
+   std::vector<std::vector<T>> fitnesses = ptr->Objective(popparams);
+
+   for(int i = 0; i < ptr->popsize; i++){
+      newpop[i]->setFitness(fitnesses[i]);
+   }
+}
+
+/*-------------------------------------------------------------------------------------------------*/
+
+// complete new batch population
+template <typename T>
+void Population<T>::batchCompletion()
+{
+
+   #ifdef _OPENMP 
+   #pragma omp parallel for num_threads(MAX_THREADS)
+   #endif
+   for (int i = nbrcrov; i < ptr->popsize; ++i) {
+      // selecting chromosome randomly from mating population
+      newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
+      // mutating chromosome
+      ptr->Mutation(newpop[i]);
+   }
+
+   std::vector<std::vector<T>> popparams;
+   for(int i = 0; i < ptr->popsize; i++){
+      popparams.push_back(newpop[i]->getUpdatedParam());
+   }
+
+   std::vector<std::vector<T>> fitnesses = ptr->Objective(popparams);
+   for(int i = 0; i < ptr->popsize; i++){
+      newpop[i]->setFitness(fitnesses[i]);
+   }
+}
+
 
 /*-------------------------------------------------------------------------------------------------*/
 

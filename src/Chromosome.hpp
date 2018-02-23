@@ -25,7 +25,11 @@ public:
    void initialize();
    // evaluate chromosome 
    void evaluate(); 
-   // reset chromosome
+   // update param and get it
+   std::vector<T> getUpdatedParam();
+   //set fitness for batch
+   void setFitness(std::vector<T> result);
+   // reset chromosome   
    void reset();
    // set or replace kth gene by a new one
    void setGene(int k);
@@ -155,6 +159,30 @@ inline void Chromosome<T>::evaluate()
    // initializing fitness to this total
    fitness = total;
 }
+
+
+// evaluate chromosome fitness
+template <typename T>
+inline std::vector<T> Chromosome<T>::getUpdatedParam() 
+{
+   int i(0);
+   for (const auto& x : ptr->param) {
+      // decoding chromosome: converting chromosome string into a real value
+      param[i] = x->decode(chr.substr(ptr->idx[i++], x->size()));
+   } 
+   return param;
+}
+
+
+template <typename T>
+inline void Chromosome<T>::setFitness(std::vector<T> result) 
+{
+   // computing sum of all results (in case there is not only one objective functions)
+   this->result = result;
+   total = std::accumulate(result.begin(), result.end(), 0.0);
+   fitness = total;
+}
+
 
 /*-------------------------------------------------------------------------------------------------*/
 

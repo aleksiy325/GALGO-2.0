@@ -20,7 +20,7 @@ class GeneticAlgorithm
    friend class Chromosome;
 
    template <typename K>
-   using Func = std::vector<K> (*)(const std::vector<K>&);
+   using Func = std::vector<std::vector<K>> (*)(const std::vector<std::vector<K>>&);
 
 private:
    Population<T> pop;             // population of chromosomes
@@ -60,6 +60,7 @@ public:
    GeneticAlgorithm(Func<T> objective, int popsize, int nbgen, bool output, const Parameter<T,N>&...args);
    // run genetic algorithm
    void run();
+
    // return best chromosome 
    const CHR<T>& result() const;
 
@@ -171,7 +172,7 @@ void GeneticAlgorithm<T>::check() const
 
 /*-------------------------------------------------------------------------------------------------*/
    
-// run genetic algorithm
+// batch run genetic algorithm
 template <typename T>
 void GeneticAlgorithm<T>::run()
 {
@@ -192,7 +193,7 @@ void GeneticAlgorithm<T>::run()
    }
 
    // creating population
-   pop.creation();
+   pop.batchCreation();
    // initializing best result and previous best result
    T bestResult = pop(0)->getTotal();
    T prevBestResult = bestResult;
@@ -202,7 +203,8 @@ void GeneticAlgorithm<T>::run()
    // starting population evolution
    for (nogen = 1; nogen <= nbgen; ++nogen) {
       // evolving population
-      pop.evolution();
+      pop.batchEvolution();
+
       // getting best current result
       bestResult = pop(0)->getTotal();
       // outputting results
