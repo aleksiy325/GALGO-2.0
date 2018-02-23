@@ -172,7 +172,7 @@ void GeneticAlgorithm<T>::check() const
 
 /*-------------------------------------------------------------------------------------------------*/
    
-// batch run genetic algorithm
+// run genetic algorithm
 template <typename T>
 void GeneticAlgorithm<T>::run()
 {
@@ -193,7 +193,7 @@ void GeneticAlgorithm<T>::run()
    }
 
    // creating population
-   pop.batchCreation();
+   pop.creation();
    // initializing best result and previous best result
    T bestResult = pop(0)->getTotal();
    T prevBestResult = bestResult;
@@ -203,7 +203,7 @@ void GeneticAlgorithm<T>::run()
    // starting population evolution
    for (nogen = 1; nogen <= nbgen; ++nogen) {
       // evolving population
-      pop.batchEvolution();
+      pop.evolution();
 
       // getting best current result
       bestResult = pop(0)->getTotal();

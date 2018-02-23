@@ -21,13 +21,8 @@ public:
    Population(const GeneticAlgorithm<T>& ga);
    // create a population of chromosomes
    void creation();
-   // create a batch population of chromsomes
-   void batchCreation();
    // evolve population, get next generation
    void evolution();
-   void batchEvolution();
-
-
    // access element in current population at position pos
    const CHR<T>& operator()(int pos) const;
    // access element in mating population at position pos
@@ -78,8 +73,6 @@ private:
    void completion();
    // update population (adapting, sorting)
    void updating();
-   void batchRecombination();
-   void batchCompletion();
 };
 
 /*-------------------------------------------------------------------------------------------------*/
@@ -104,33 +97,6 @@ Population<T>::Population(const GeneticAlgorithm<T>& ga)
 // create a population of chromosomes
 template <typename T>
 void Population<T>::creation()
-{
-   int start = 0;
-   // initializing first chromosome
-   if (!ptr->initialSet.empty()) {
-      curpop[0] = std::make_shared<Chromosome<T>>(*ptr);
-      curpop[0]->initialize();
-      curpop[0]->evaluate();
-      start++;
-   }
-   // getting the rest
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
-   for (int i = start; i < ptr->popsize; ++i) {
-      curpop[i] = std::make_shared<Chromosome<T>>(*ptr);
-      curpop[i]->create();
-      curpop[i]->evaluate();
-   }
-
-   // updating population
-   this->updating();
-}
-
-
-// create a population of chromosomes
-template <typename T>
-void Population<T>::batchCreation()
 {
    std::vector<std::vector<T>> popparams;
    int start = 0;
@@ -171,32 +137,12 @@ void Population<T>::evolution()
    ptr->Selection(*this);
    // applying elitism if required
    this->elitism(); 
+
    // crossing-over mating population
    this->recombination();
+
    // completing new population
    this->completion();
-   // moving new population into current population for next generation
-   curpop = std::move(newpop);
-   // updating population
-   this->updating(); 
-}
-
-// population evolution (selection, recombination, completion, mutation), get next generation
-template <typename T>
-void Population<T>::batchEvolution()
-{   
-   // initializing mating population index
-   matidx = 0;
-   // selecting mating population
-   ptr->Selection(*this);
-   // applying elitism if required
-   this->elitism(); 
-
-   // crossing-over mating population
-   this->batchRecombination();
-
-   // completing new population
-   this->batchCompletion();
 
    // moving new population into current population for next generation
    curpop = std::move(newpop);
@@ -225,51 +171,6 @@ void Population<T>::elitism()
 // create new population from recombination of the old one
 template <typename T>
 void Population<T>::recombination()
-{
-   // creating a new population by cross-over
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
-   for (int i = ptr->elitpop; i < nbrcrov; i = i + 2) {      
-      // initializing 2 new chromosome
-      newpop[i] = std::make_shared<Chromosome<T>>(*ptr);
-      newpop[i+1] = std::make_shared<Chromosome<T>>(*ptr);
-      // crossing-over mating population to create 2 new chromosomes
-      ptr->CrossOver(*this, newpop[i], newpop[i+1]);
-      // mutating new chromosomes
-      ptr->Mutation(newpop[i]);   
-      ptr->Mutation(newpop[i+1]);   
-      // evaluating new chromosomes
-      newpop[i]->evaluate();
-      newpop[i+1]->evaluate();
-   } 
-}
-
-/*-------------------------------------------------------------------------------------------------*/
-
-// complete new population
-template <typename T>
-void Population<T>::completion()
-{
-   #ifdef _OPENMP 
-   #pragma omp parallel for num_threads(MAX_THREADS)
-   #endif
-   for (int i = nbrcrov; i < ptr->popsize; ++i) {
-      // selecting chromosome randomly from mating population
-      newpop[i] = std::make_shared<Chromosome<T>>(*matpop[uniform<int>(0, ptr->matsize)]);
-      // mutating chromosome
-      ptr->Mutation(newpop[i]);
-      // evaluating chromosome
-      newpop[i]->evaluate();
-   }
-}
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
-// create new batch population from recombination of the old one
-template <typename T>
-void Population<T>::batchRecombination()
 {
 
    // creating a new population by cross-over
@@ -301,9 +202,9 @@ void Population<T>::batchRecombination()
 
 /*-------------------------------------------------------------------------------------------------*/
 
-// complete new batch population
+// complete new population
 template <typename T>
-void Population<T>::batchCompletion()
+void Population<T>::completion()
 {
 
    #ifdef _OPENMP 

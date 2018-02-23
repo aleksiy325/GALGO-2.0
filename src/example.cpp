@@ -1,7 +1,3 @@
-//=================================================================================================
-//                    Copyright (C) 2017 Olivier Mallet - All Rights Reserved                      
-//=================================================================================================
-
 #include "Galgo.hpp"
 
 // objective class example
@@ -11,10 +7,14 @@ class MyObjective
 public:
    // objective function example : Rosenbrock function
    // minimizing f(x,y) = (1 - x)^2 + 100 * (y - x^2)^2
-   static std::vector<T> Objective(const std::vector<T>& x)
-   {
-      T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
-      return {obj};
+   static std::vector<std::vector<T>> Objective(const std::vector<std::vector<T>>& all_x)
+   {  
+      std::vector<std::vector<T>> result;
+      for(auto x: all_x ){
+         T obj = -(pow(1-x[0],2)+100*pow(x[1]-x[0]*x[0],2));
+         result.push_back({obj});
+      }
+      return result;
    }
    // NB: GALGO maximize by default so we will maximize -f(x,y)
 };
